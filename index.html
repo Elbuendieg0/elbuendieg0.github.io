@@ -69,12 +69,12 @@
     <button id="start" type="button">Activar cámara</button>
     <a href="mandala-terminado.png" target="_blank">¿No tienes el mandala a mano? Ábrelo en otra pantalla</a>
   </div>
-  <div id="ver">v1</div>
+  <div id="ver">v2</div>
   <audio id="musica" src="audio.m4a" preload="auto" playsinline></audio>
   <div id="tip" hidden>Busca el mandala con la cámara…</div>
 
   <a-scene id="scene"
-    mindar-image="imageTargetSrc: ./targets.mind; autoStart: false; uiScanning: no; filterMinCF: 0.0001; filterBeta: 0.001"
+    mindar-image="imageTargetSrc: ./targets.mind; maxTrack: 1; autoStart: false; uiScanning: no; filterMinCF: 0.0001; filterBeta: 0.001"
     color-space="sRGB" renderer="colorManagement: true" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
     <a-assets>
       <a-asset-item id="modelo" src="personaje.glb"></a-asset-item>
@@ -83,23 +83,29 @@
     <a-light type="directional" intensity="1.4" position="0.5 1 1"></a-light>
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-    <a-entity id="target" mindar-image-target="targetIndex: 0">
+    <!-- Dos versiones del mandala pintado: con el anillo de afuera a color y en blanco -->
+    <a-entity class="target" mindar-image-target="targetIndex: 0">
       <!-- La hoja es el plano XY; el giro de 90° en X pone al personaje de pie en el centro del mandala -->
-      <a-entity id="actor" rotation="90 0 0" scale="0.001 0.001 0.001">
+      <a-entity class="actor" rotation="90 0 0" scale="0.001 0.001 0.001">
         <a-circle radius="0.16" rotation="-90 0 0" position="0 0.002 0"
           material="shader: flat; color: #000; opacity: 0.35; transparent: true"></a-circle>
-        <a-entity id="personaje" gltf-model="#modelo" fit-height="0.75" animation-mixer="clip: *; loop: repeat; timeScale: 0"></a-entity>
+        <a-entity class="personaje" gltf-model="#modelo" fit-height="0.75" animation-mixer="clip: *; loop: repeat; timeScale: 0"></a-entity>
+      </a-entity>
+    </a-entity>
+    <a-entity class="target" mindar-image-target="targetIndex: 1">
+      <a-entity class="actor" rotation="90 0 0" scale="0.001 0.001 0.001">
+        <a-circle radius="0.16" rotation="-90 0 0" position="0 0.002 0"
+          material="shader: flat; color: #000; opacity: 0.35; transparent: true"></a-circle>
+        <a-entity class="personaje" gltf-model="#modelo" fit-height="0.75" animation-mixer="clip: *; loop: repeat; timeScale: 0"></a-entity>
       </a-entity>
     </a-entity>
   </a-scene>
 
   <script>
     const scene = document.getElementById('scene');
-    const target = document.getElementById('target');
-    const actor = document.getElementById('actor');
-    const personaje = document.getElementById('personaje');
     const tip = document.getElementById('tip');
     const musica = document.getElementById('musica');
+    let visibles = 0;
 
     document.getElementById('start').addEventListener('click', async () => {
       document.getElementById('intro').hidden = true;
@@ -110,20 +116,26 @@
       scene.systems['mindar-image-system'].start();
     });
 
-    target.addEventListener('targetFound', () => {
-      tip.hidden = true;
-      actor.removeAttribute('animation');
-      actor.setAttribute('animation', 'property: scale; from: 0.001 0.001 0.001; to: 1 1 1; dur: 700; easing: easeOutBack');
-      personaje.setAttribute('animation-mixer', 'timeScale', 1);
-      musica.play().catch(() => {});
-    });
+    document.querySelectorAll('.target').forEach(target => {
+      const actor = target.querySelector('.actor');
+      const personaje = target.querySelector('.personaje');
 
-    target.addEventListener('targetLost', () => {
-      tip.hidden = false;
-      actor.removeAttribute('animation');
-      actor.setAttribute('scale', '0.001 0.001 0.001');
-      personaje.setAttribute('animation-mixer', 'timeScale', 0);
-      musica.pause();
+      target.addEventListener('targetFound', () => {
+        visibles++;
+        tip.hidden = true;
+        actor.removeAttribute('animation');
+        actor.setAttribute('animation', 'property: scale; from: 0.001 0.001 0.001; to: 1 1 1; dur: 700; easing: easeOutBack');
+        personaje.setAttribute('animation-mixer', 'timeScale', 1);
+        if (musica.paused) musica.play().catch(() => {});
+      });
+
+      target.addEventListener('targetLost', () => {
+        visibles = Math.max(0, visibles - 1);
+        actor.removeAttribute('animation');
+        actor.setAttribute('scale', '0.001 0.001 0.001');
+        personaje.setAttribute('animation-mixer', 'timeScale', 0);
+        if (!visibles) { tip.hidden = false; musica.pause(); }
+      });
     });
   </script>
 </body>
